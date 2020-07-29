@@ -19,8 +19,6 @@ class PacketsLiveViewer extends LitElement {
 
   firstUpdated () {
     this.displayPacketsTable()
-    // document.querySelector('packets-live-viewer').setAttribute('', '')
-    // document.getElementById('output').innerHTML = document.querySelector('div span').innerHTML
     this.shadowRoot.getElementById('send').onclick = () => {
       console.log(`Sent packet ${this.shadowRoot.getElementById('packet').value}`)
       this.ws.send(this.shadowRoot.getElementById('packet').value)
@@ -31,7 +29,7 @@ class PacketsLiveViewer extends LitElement {
     this.listenToPackets()
     if (this.fake) {
       setInterval(() => {
-        this.packetsTable.row.add([new Date().toLocaleTimeString(), 'lol1', 'lol2', 'lol3']).draw('full-hold')
+        this.packetsTable.row.add([new Date().toLocaleTimeString(), '1', '2', '3']).draw('full-hold')
       }, 1000)
     }
   }
@@ -39,12 +37,8 @@ class PacketsLiveViewer extends LitElement {
   listenToPackets () {
     this.ws.addEventListener('message', message => {
       const data = JSON.parse(message.data)
-      if (data.protocol === 'event') {
-        return
-      }
-      const { protocol, name, params } = data
-      this.packetsTable.row.add([new Date().toLocaleTimeString(), protocol, name, JSON.stringify(params)]).draw('full-hold')
-      console.log(protocol, name, JSON.stringify(params))
+      const { name, params, toServer } = data
+      this.packetsTable.row.add([new Date().toLocaleTimeString(), `${toServer ? "toServer": "toClient"}`, name, JSON.stringify(params)]).draw('full-hold')
     })
   }
 

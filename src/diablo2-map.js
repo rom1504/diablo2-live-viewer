@@ -1,4 +1,4 @@
-/* globals customElements */
+/* globals customElements, fetch */
 
 import monsterNamesRaw from 'diablo2-data/data/pod_1.13d/monster_names.txt'
 import objectsRaw from 'diablo2-data/data/pod_1.13d/objects.txt'
@@ -231,6 +231,20 @@ class Diablo2Map extends LitElement {
     this.path = L.polyline(transformedPath, { color: 'red' }).addTo(this.map)
   }
 
+  getMap () {
+    fetch(`127.0.0.1:6666/sessions/${this.sessionId}/areas/${this.areaId}`)
+      .then(response => response.json())
+      .then(result => {
+        for (let key in result.adjacentLevels) {
+          let { exits, origin, width, height } = result.adjacentLevels[key]
+          let { x, y } = origin
+          ({ x, y } = transformCoords({ x, y }))
+          const pos = xy(x, y)
+          this.exits[key] = Diablo2Map.addMarker(this.warpLayer, pos, 'red', `area ${key}`, false, waypointIcon)
+        }
+      })
+  }
+
   listenToPackets () {
     this.ws.addEventListener('message', message => {
       const { name, params } = JSON.parse(message.data)
@@ -300,6 +314,38 @@ class Diablo2Map extends LitElement {
         this.path.remove()
         this.path = null
       }
+
+      if (name === 'D2GS_LOADACT') {
+        let { act, mapId, areadId } = params
+        this.act = act
+        this.areaId = areadId
+        // curl -X POST -H "Content-Type: application/json" -d "{\"difficulty\": 1, \"mapid\": 1342177280}" 127.0.0.1:6666/sessions/
+        let data = {
+          'mapId': mapId,
+          'difficulty': 1
+        }
+        fetch('127.0.0.1:6666/sessions/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json;charset=utf-8'
+          },
+          body: JSON.stringify(data)
+        }).then(response => response.json())
+          .then(result => { this.sessionId = result.id })
+          .then(result => this.getMap())
+        // curl localhost:6666/sessions/927e300c-5d38-4151-93e2-b95f8c370d78/areas/2
+      }
+
+      if (name === 'D2GS_MAPREVEAL') {
+        this.areaId = params.areadId
+        if (this.sessionId != null) {
+          this.getMap()
+        }
+      }
+
+      if (name === 'D2GS_GAMECONNECTIONTERMINATED') {
+        // TODO: should reset state or something like that
+      }
     })
   }
 
@@ -334,6 +380,7 @@ class Diablo2Map extends LitElement {
     this.objects = {}
     this.walls = []
     this.path = null
+    this.exits = {}
 
     const mapElement = this.shadowRoot.querySelector('#map')
     this.playerLayer = L.layerGroup()
